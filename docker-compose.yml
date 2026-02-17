@@ -1,0 +1,92 @@
+version: "3"
+services:
+  # --- THE CLOUD SERVER (Simulated Central Data Center) ---
+  cloud-server:
+    build: .
+    # FORCE it to run the app directly, not the manager
+    command: node app.js
+    ports:
+      - "4000:8080"
+    environment:
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+
+  # --- EDGE NODES (Simulated "Weak" Locations) ---
+  # Node 1 (e.g., New York)
+  edge-1:
+    build: .
+    ports:
+      - "5001:5000" # Manager
+      - "8001:8080" # App
+    environment:
+      - NODE_ID=edge-1
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4" # Very slow CPU!
+          memory: 128M
+
+  # Node 2 (e.g., London)
+  edge-2:
+    build: .
+    ports:
+      - "5002:5000"
+      - "8002:8080"
+    environment:
+      - NODE_ID=edge-2
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 128M
+
+  # Node 3 (e.g., Tokyo)
+  edge-3:
+    build: .
+    ports:
+      - "5003:5000"
+      - "8003:8080"
+    environment:
+      - NODE_ID=edge-3
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 128M
+
+  # Node 4 (e.g., Sydney)
+  edge-4:
+    build: .
+    ports:
+      - "5004:5000"
+      - "8004:8080"
+    environment:
+      - NODE_ID=edge-4
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 128M
+
+  # Node 5 (e.g., Mumbai)
+  edge-5:
+    build: .
+    ports:
+      - "5005:5000"
+      - "8005:8080"
+    environment:
+      - NODE_ID=edge-5
+      - APP_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 128M

@@ -1,0 +1,12 @@
+{
+  "name": "edge-node",
+  "version": "1.0.0",
+  "main": "edge-manager.js",
+  "scripts": {
+    "start": "node edge-manager.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.5",
+    "express": "^4.18.2"
+  }
+}
