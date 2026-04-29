@@ -62,7 +62,7 @@ for REGION in "${REGIONS[@]}"; do
         --platform managed \
         --allow-unauthenticated \
         --args="src/app.js" \
-        --set-env-vars="ROLE=edge-app,NODE_ID=$NODE_ID_COUNTER" \
+        --set-env-vars="ROLE=edge-app,NODE_ID=$NODE_ID_COUNTER,REDIS_URL=redis://REPLACE_ME:6379" \
         --format 'value(status.url)')
 
     echo "App URL: $APP_URL"
@@ -75,7 +75,7 @@ for REGION in "${REGIONS[@]}"; do
         --platform managed \
         --allow-unauthenticated \
         --args="src/edge-manager.js" \
-        --set-env-vars="ROLE=edge-manager,LOCAL_APP_URL=$APP_URL,NODE_ID=$NODE_ID_COUNTER" \
+        --set-env-vars="ROLE=edge-manager,LOCAL_APP_URL=$APP_URL,NODE_ID=$NODE_ID_COUNTER,REDIS_URL=redis://REPLACE_ME:6379" \
         --format 'value(status.url)')
 
     echo "Manager URL: $MANAGER_URL"

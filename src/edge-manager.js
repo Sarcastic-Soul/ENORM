@@ -2,6 +2,8 @@
 const express = require("express");
 const { spawn } = require("child_process");
 const axios = require("axios");
+const os = require("os");
+const { createClient } = require("redis");
 const app = express();
 
 app.use(express.json({ limit: "50mb" })); // Increased limit for potentially large game states
@@ -10,8 +12,36 @@ const MANAGER_PORT = process.env.MANAGER_PORT || 5000;
 let appProcess = null;
 let simulatedCpuUsage = 10;
 
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
 // Helper to wait for the app to start
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// --- Helper to verify Redis ---
+async function waitForRedis() {
+    const client = createClient({ url: REDIS_URL });
+    client.on("error", () => {}); // ignore warnings during poll
+    let connected = false;
+    console.log(`[EDGE] Checking Redis connection at ${REDIS_URL}...`);
+    for (let i = 0; i < 5; i++) {
+        try {
+            await client.connect();
+            await client.ping();
+            connected = true;
+            await client.disconnect();
+            break;
+        } catch (e) {
+            await delay(1000);
+        }
+    }
+    if (!connected) {
+        console.warn(
+            "[EDGE] Warning: Could not connect to Redis. App may fail to start properly if Redis is unreachable.",
+        );
+    } else {
+        console.log("[EDGE] Redis connection verified.");
+    }
+}
 
 // --- 1. Handshake (Dynamic Resource Check) ---
 app.post("/handshake", (req, res) => {
@@ -51,10 +81,12 @@ app.post("/deploy", async (req, res) => {
             APP_PORT: 8080,
             MAX_COMPUTE_CONCURRENCY: 5, // Granular limit: fewer compute threads
             MAX_IO_CONCURRENCY: 15, // Granular limit: more IO allowed
+            REDIS_URL: REDIS_URL,
         },
     });
 
-    // Give the process a moment to bind to the port
+    // Wait for the process and Redis
+    await waitForRedis();
     await delay(1500);
 
     res.json({ status: "Deployed", pid: appProcess.pid });
@@ -62,10 +94,18 @@ app.post("/deploy", async (req, res) => {
 
 // --- 3. Monitor (Telemetry) ---
 app.get("/monitor", (req, res) => {
-    simulatedCpuUsage = Math.random() * 40 + 10; // Fluctuate CPU between 10-50%
+    // Real telemetry via OS module
+    const cpus = os.cpus();
+    const loadAvg = os.loadavg()[0]; // 1 minute load average
+    const cpuUsagePercent = (loadAvg / cpus.length) * 100;
+
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMemMb = (totalMem - freeMem) / 1024 / 1024;
+
     res.json({
-        cpu_usage: simulatedCpuUsage.toFixed(1),
-        memory_mb: 145,
+        cpu_usage: cpuUsagePercent.toFixed(1),
+        memory_mb: usedMemMb.toFixed(1),
         latency_network_ms: 10,
         latency_compute_ms: 35,
     });
@@ -134,8 +174,11 @@ app.post("/migrate-in", async (req, res) => {
                 APP_PORT: 8080,
                 MAX_COMPUTE_CONCURRENCY: 5,
                 MAX_IO_CONCURRENCY: 15,
+                REDIS_URL: REDIS_URL,
             },
         });
+
+        await waitForRedis();
         // Wait for boot
         await delay(1500);
     }
