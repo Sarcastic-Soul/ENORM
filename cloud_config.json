@@ -9,13 +9,6 @@
       "appUrl": "https://enorm-app-us-east4-x33vyims5q-uk.a.run.app",
       "managerUrl": "https://enorm-manager-us-east4-x33vyims5q-uk.a.run.app",
       "workerUrl": "https://enorm-worker-us-east4-x33vyims5q-uk.a.run.app"
-    },
-    "edge-2": {
-      "id": "edge-2",
-      "region": "europe-west2",
-      "appUrl": "https://enorm-app-europe-west2-x33vyims5q-nw.a.run.app",
-      "managerUrl": "https://enorm-manager-europe-west2-x33vyims5q-nw.a.run.app",
-      "workerUrl": "https://enorm-worker-europe-west2-x33vyims5q-nw.a.run.app"
     }
   }
 }
