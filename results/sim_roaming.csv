@@ -1,0 +1,16 @@
+Phase,Region,Avg_Latency_ms,Success_Rate_%
+1_Pre_Migration,us-east4,77.98,100.0
+2_Migration_Sync,Cross-Region,1552,100
+3_Post_Migration,europe-west2,252.66,100.0
+1_Pre_Migration,us-east4,64.80,100.0
+2_Migration_Sync,Cross-Region,1454,100
+3_Post_Migration,europe-west2,242.00,100.0
+1_Pre_Migration,us-east4,64.28,100.0
+2_Migration_Sync,Cross-Region,1573,100
+3_Post_Migration,europe-west2,242.82,100.0
+1_Pre_Migration,us-east4,76.34,100.0
+2_Migration_Sync,Cross-Region,1530,100
+3_Post_Migration,europe-west2,247.08,100.0
+1_Pre_Migration,us-east4,65.58,100.0
+2_Migration_Sync,Cross-Region,1320,100
+3_Post_Migration,europe-west2,238.68,100.0
