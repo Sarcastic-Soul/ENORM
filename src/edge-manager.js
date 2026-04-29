@@ -94,7 +94,8 @@ app.post("/migrate-out", async (req, res) => {
             "--- [EDGE] Initiating Migration OUT... Exporting State ---",
         );
         // Fetch the current game state from the locally running app
-        const response = await axios.get("http://localhost:8080/game/export");
+        const appUrl = process.env.LOCAL_APP_URL || "http://localhost:8080";
+        const response = await axios.get(`${appUrl}/game/export`);
         const gameState = response.data.state;
 
         // Terminate local app after successful export to free up resources
@@ -142,7 +143,8 @@ app.post("/migrate-in", async (req, res) => {
     try {
         console.log("[EDGE] Injecting imported state into local app...");
         // Push the state into the locally running app
-        await axios.post("http://localhost:8080/game/import", {
+        const appUrl = process.env.LOCAL_APP_URL || "http://localhost:8080";
+        await axios.post(`${appUrl}/game/import`, {
             imported_state: state,
         });
 

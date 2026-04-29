@@ -29,11 +29,21 @@ The original ENORM paper provided an excellent foundation but explicitly left se
 
 ### 1. Start the Docker Infrastructure (The Servers)
 Before running any tests or the dashboard, you must boot the physically simulated Cloud and Edge Nodes.
+
+> **Note:** It is highly recommended to use `docker compose` (with a space) rather than the older `docker-compose` (with a hyphen) to avoid `ContainerConfig` compatibility errors with newer Docker versions.
+
 ```bash
 # In the root project directory (minor_sem6)
-docker-compose up --build -d
+docker compose up --build -d
 ```
 *(Wait 5-10 seconds for the edge-managers to fully boot and bind to their ports)*
+
+**Troubleshooting `ContainerConfig` Error:**
+If you see a `KeyError: 'ContainerConfig'` when running the docker command, it means an older version of `docker-compose` is conflicting with modern Docker. Fix this by using `docker compose` (space instead of hyphen), or by completely clearing the old container state first:
+```bash
+docker-compose down
+docker-compose up --build -d
+```
 
 ---
 
