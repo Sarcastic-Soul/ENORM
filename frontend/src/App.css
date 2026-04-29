@@ -1,0 +1,149 @@
+body,
+html,
+#root {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #1e1e2f;
+    color: #ffffff;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: #282a36;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #8be9fd;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background-color: #6272a4;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition:
+        background 0.2s,
+        color 0.2s;
+}
+
+button:hover {
+    background-color: #50fa7b;
+    color: #282a36;
+}
+
+.danger {
+    background-color: #ff5555;
+}
+.danger:hover {
+    background-color: #ffb86c;
+    color: #282a36;
+}
+
+.warning {
+    background-color: #ffb86c;
+    color: #282a36;
+}
+.warning:hover {
+    background-color: #ff5555;
+    color: white;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    padding: 20px;
+    gap: 20px;
+    overflow: hidden;
+}
+
+.panel {
+    background-color: #282a36;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.map-panel {
+    flex: 2;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-panel {
+    flex: 1;
+    min-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 250px;
+}
+
+.canvas-wrapper {
+    flex: 1;
+    position: relative;
+    margin-top: 10px;
+    overflow: hidden;
+    border: 1px solid #44475a;
+    border-radius: 4px;
+    background-color: #1e1e2f;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+}
+
+.instructions {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #f1fa8c;
+    text-align: center;
+}
+
+.selected-info {
+    color: #50fa7b;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 4px;
+}

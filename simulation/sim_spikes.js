@@ -22,7 +22,6 @@ const TRAFFIC_PATTERN = [
   5, // Recovery
 ];
 
-// --- FIX: WAKE UP THE EDGE NODES FIRST ---
 async function setupNodes() {
   console.log("--- PROVISIONING EDGE NODES ---");
   for (const node of World.EDGES) {
@@ -34,13 +33,21 @@ async function setupNodes() {
   await new Promise((r) => setTimeout(r, 3000));
 }
 
-async function measureSystem(urls, reqCount, baseDelay) {
+// NEW: Added isFog flag to enable offload logic
+async function measureSystem(urls, reqCount, baseDelay, isFog = false) {
   const start = Date.now();
   const promises = Array.from({ length: reqCount }).map(async (_, i) => {
     const target = urls[i % urls.length];
     try {
       await axios.get(target);
-    } catch (e) {}
+    } catch (e) {
+      // NEW: Offload to Cloud during spike if Edge is full
+      if (isFog && e.response && e.response.status === 503) {
+        try {
+          await axios.get(`${World.CLOUD.url}/heavy`);
+        } catch (cloudErr) {}
+      }
+    }
   });
   await Promise.all(promises);
   return Date.now() - start + baseDelay;
@@ -61,10 +68,16 @@ async function run() {
       [`${World.CLOUD.url}/heavy`],
       reqs,
       200,
+      false,
     );
 
     const edgeUrls = World.EDGES.map((e) => `${e.app}/heavy`);
-    const fogTime = await measureSystem(edgeUrls, reqs, 20);
+    const fogTime = await measureSystem(
+      edgeUrls,
+      reqs,
+      20,
+      true, // Enable fog offloading logic
+    );
 
     logs += `${tick},${reqs},${cloudTime},${fogTime}\n`;
   }

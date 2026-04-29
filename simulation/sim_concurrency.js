@@ -6,7 +6,6 @@ const World = require("./world_map");
 const CSV_FILE = path.join(__dirname, "../results/sim_concurrency.csv");
 const CONCURRENCY = 200;
 
-// --- FIX: WAKE UP THE EDGE NODES FIRST ---
 async function setupNodes() {
   console.log("--- PROVISIONING EDGE NODES ---");
   for (const node of World.EDGES) {
@@ -16,9 +15,7 @@ async function setupNodes() {
       });
       await axios.post(`${node.manager}/deploy`);
       console.log(`Node ${node.id} is deploying...`);
-    } catch (e) {
-      // If it's already running, that's fine too
-    }
+    } catch (e) {}
   }
   console.log("Waiting 3 seconds for apps to boot inside containers...");
   await new Promise((r) => setTimeout(r, 3000));
@@ -27,8 +24,6 @@ async function setupNodes() {
 
 async function run() {
   console.log(`--- RUNNING CONCURRENCY SIMULATION (${CONCURRENCY} reqs) ---`);
-
-  // Boot the nodes before the test!
   await setupNodes();
 
   let logs = "mode,request_id,latency,status\n";
@@ -49,16 +44,29 @@ async function run() {
   await Promise.all(cloudPromises);
   console.log("Cloud attack finished.");
 
-  // 2. FOG DISTRIBUTED ATTACK
-  console.log("Blasting Fog (Distributed)...");
+  // 2. FOG DISTRIBUTED ATTACK (With Offloading)
+  console.log("Blasting Fog (Distributed with Offloading)...");
   const fogPromises = Array.from({ length: CONCURRENCY }).map(async (_, i) => {
     const start = Date.now();
     const edge = World.EDGES[i % World.EDGES.length];
+
     try {
+      // Try Edge First
       await axios.get(`${edge.app}/heavy`);
       logs += `Fog,${i},${Date.now() - start + 20},Success\n`;
     } catch (e) {
-      logs += `Fog,${i},5000,Failed\n`;
+      // NEW: Catch the Overload and Offload to Cloud!
+      if (e.response && e.response.status === 503) {
+        try {
+          await axios.get(`${World.CLOUD.url}/heavy`);
+          // Latency = Edge attempt (20ms) + Cloud routing (200ms) + processing time
+          logs += `Fog,${i},${Date.now() - start + 220},Offloaded\n`;
+        } catch (cloudError) {
+          logs += `Fog,${i},5000,Failed\n`;
+        }
+      } else {
+        logs += `Fog,${i},5000,Failed\n`; // Actual crash
+      }
     }
   });
   await Promise.all(fogPromises);

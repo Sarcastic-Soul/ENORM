@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENORM - Live Simulation Dashboard</title>
+    <!-- Chart.js for real-time graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.io for real-time backend communication -->
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #282a36;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        h1 { margin: 0; font-size: 1.5rem; color: #8be9fd; }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background-color: #6272a4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #50fa7b; color: #282a36; }
+        .danger { background-color: #ff5555; }
+        .danger:hover { background-color: #ffb86c; }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .panel {
+            background-color: #282a36;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        .map-panel {
+            flex: 2;
+            position: relative;
+        }
+        .chart-panel {
+            flex: 1;
+            min-width: 400px;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #1e1e2f;
+            border-radius: 4px;
+            border: 1px solid #44475a;
+        }
+        .instructions {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #f1fa8c;
+            text-align: center;
+        }
+        .selected-info {
+            color: #50fa7b;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ENORM: Live Edge/Fog Simulation</h1>
+        <div class="controls">
+            <button onclick="spawnUsers(1)">+ Spawn 1 User</button>
+            <button onclick="spawnUsers(5)">+ Spawn 5 Users</button>
+            <button onclick="toggleAutoRoam()" id="roamBtn">Start Auto-Roam</button>
+            <button class="danger" onclick="resetSim()">Reset</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="panel map-panel">
+            <div class="selected-info" id="selectedInfo">No user selected. Click a user to view their live data.</div>
+            <canvas id="simMap"></canvas>
+            <div class="instructions">Controls: Click a User to select. Click anywhere on the map to move the selected user.</div>
+        </div>
+        <div class="panel chart-panel">
+            <h3 style="margin-top:0; text-align:center; color: #ff79c6;">Live Latency Comparison</h3>
+            <div style="flex:1; position: relative;">
+                <canvas id="latencyChart"></canvas>
+            </div>
+            <div id="migrationAlert" style="margin-top: 15px; color: #ff5555; font-weight: bold; text-align: center; min-height: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        // --- MAP STATE ---
+        let envData = { cloud: null, edges: [], users: [] };
+        let selectedUserId = null;
+        let autoRoamInterval = null;
+
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('simMap');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas to match display size
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height - 70; // account for text elements
+            drawMap();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Map coordinates (Sim space: X[-100, 100], Y[-50, 200]) to Canvas space
+        function toCanvas(x, y) {
+            const scaleX = canvas.width / 240;
+            const scaleY = canvas.height / 250;
+            return {
+                cx: (x + 120) * scaleX,
+                cy: canvas.height - ((y + 30) * scaleY)
+            };
+        }
+
+        function fromCanvas(cx, cy) {
+            const scaleX = canvas.width / 240;
+            const scaleY = canvas.height / 250;
+            return {
+                x: (cx / scaleX) - 120,
+                y: ((canvas.height - cy) / scaleY) - 30
+            };
+        }
+
+        // --- CHART SETUP ---
+        const chartCtx = document.getElementById('latencyChart').getContext('2d');
+        const latencyChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Cloud Computing (ms)',
+                        data: [],
+                        borderColor: '#bd93f9', // Purple
+                        backgroundColor: 'rgba(189, 147, 249, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Edge Computing (ms)',
+                        data: [],
+                        borderColor: '#50fa7b', // Green
+                        backgroundColor: 'rgba(80, 250, 123, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false }, // Hide time labels to look cleaner
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#44475a' },
+                        ticks: { color: '#f8f8f2' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#f8f8f2' } }
+                },
+                animation: { duration: 0 } // Disable animation for real-time feel
+            }
+        });
+
+        // --- SOCKET LISTENERS ---
+        socket.on('init_state', (data) => {
+            envData.cloud = data.cloud;
+            envData.edges = data.edges;
+            envData.users = data.users;
+            resizeCanvas();
+        });
+
+        socket.on('update_users', (users) => {
+            envData.users = users;
+            drawMap();
+            updateSelectedInfo();
+        });
+
+        socket.on('stat_update', ({ userId, stat }) => {
+            if (userId === selectedUserId) {
+                // Update chart
+                const timeLabel = new Date(stat.time).toLocaleTimeString();
+                latencyChart.data.labels.push(timeLabel);
+                latencyChart.data.datasets[0].data.push(stat.cloud_latency);
+                latencyChart.data.datasets[1].data.push(stat.edge_latency);
+
+                // Keep only last 15 points
+                if (latencyChart.data.labels.length > 15) {
+                    latencyChart.data.labels.shift();
+                    latencyChart.data.datasets[0].data.shift();
+                    latencyChart.data.datasets[1].data.shift();
+                }
+
+                // Check for migration spike
+                const alertBox = document.getElementById('migrationAlert');
+                if (stat.is_migrating) {
+                    latencyChart.data.datasets[1].pointBackgroundColor = latencyChart.data.datasets[1].data.map((_, i, arr) => i === arr.length - 1 ? '#ff5555' : '#50fa7b');
+                    alertBox.innerText = `⚠️ STATE MIGRATION TRIGGERED! (${stat.edge_latency.toFixed(0)}ms Spike)`;
+                    setTimeout(() => { alertBox.innerText = ''; }, 3000);
+                } else {
+                    latencyChart.data.datasets[1].pointBackgroundColor = '#50fa7b';
+                }
+
+                latencyChart.update();
+            }
+        });
+
+        // --- ACTIONS ---
+        function spawnUsers(count) {
+            socket.emit('spawn_users', count);
+        }
+
+        function resetSim() {
+            socket.emit('reset');
+            selectedUserId = null;
+            updateSelectedInfo();
+            latencyChart.data.labels = [];
+            latencyChart.data.datasets[0].data = [];
+            latencyChart.data.datasets[1].data = [];
+            latencyChart.update();
+        }
+
+        function toggleAutoRoam() {
+            const btn = document.getElementById('roamBtn');
+            if (autoRoamInterval) {
+                clearInterval(autoRoamInterval);
+                autoRoamInterval = null;
+                btn.innerText = 'Start Auto-Roam';
+                btn.style.backgroundColor = '#6272a4';
+            } else {
+                btn.innerText = 'Stop Auto-Roam';
+                btn.style.backgroundColor = '#ffb86c';
+                autoRoamInterval = setInterval(() => {
+                    envData.users.forEach(u => {
+                        // Move generally rightwards, with some random jitter
+                        const dx = 5 + (Math.random() * 4 - 2);
+                        const dy = (Math.random() * 4 - 2);
+
+                        // Wrap around if they go too far right
+                        if (u.x > 100) {
+                            socket.emit('move_user', { id: u.id, dx: -200, dy: 0 });
+                        } else {
+                            socket.emit('move_user', { id: u.id, dx, dy });
+                        }
+                    });
+                }, 1000);
+            }
+        }
+
+        // --- INTERACTIVITY ---
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const simCoord = fromCanvas(cx, cy);
+
+            // 1. Check if clicked on a user
+            let clickedUser = null;
+            for (const u of envData.users) {
+                const uPos = toCanvas(u.x, u.y);
+                const dist = Math.sqrt(Math.pow(uPos.cx - cx, 2) + Math.pow(uPos.cy - cy, 2));
+                if (dist < 15) { // 15px click radius
+                    clickedUser = u;
+                    break;
+                }
+            }
+
+            if (clickedUser) {
+                selectedUserId = clickedUser.id;
+
+                // Reset chart for new user
+                latencyChart.data.labels = [];
+                latencyChart.data.datasets[0].data = [];
+                latencyChart.data.datasets[1].data = [];
+
+                // Populate history if exists
+                clickedUser.history.forEach(stat => {
+                    latencyChart.data.labels.push(new Date(stat.time).toLocaleTimeString());
+                    latencyChart.data.datasets[0].data.push(stat.cloud_latency);
+                    latencyChart.data.datasets[1].data.push(stat.edge_latency);
+                });
+                latencyChart.update();
+                updateSelectedInfo();
+                drawMap();
+                return;
+            }
+
+            // 2. If a user is selected and we clicked empty space, MOVE them
+            if (selectedUserId) {
+                const user = envData.users.find(u => u.id === selectedUserId);
+                if (user) {
+                    const dx = simCoord.x - user.x;
+                    const dy = simCoord.y - user.y;
+                    socket.emit('move_user', { id: selectedUserId, dx, dy });
+                }
+            }
+        });
+
+        function updateSelectedInfo() {
+            const infoDiv = document.getElementById('selectedInfo');
+            if (!selectedUserId) {
+                infoDiv.innerText = "No user selected. Click a user to view their live data.";
+                return;
+            }
+            const user = envData.users.find(u => u.id === selectedUserId);
+            if (user) {
+                const connectedEdge = envData.edges[user.currentEdgeIdx]?.id || "Unknown";
+                infoDiv.innerText = `Following ${user.id} | Pos: (${user.x.toFixed(1)}, ${user.y.toFixed(1)}) | Connected to: ${connectedEdge}`;
+            } else {
+                selectedUserId = null; // User was deleted
+                infoDiv.innerText = "No user selected. Click a user to view their live data.";
+            }
+        }
+
+        // --- DRAWING LOOP ---
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Cloud
+            if (envData.cloud) {
+                const pos = toCanvas(envData.cloud.x, envData.cloud.y);
+                ctx.fillStyle = '#8be9fd';
+                ctx.beginPath();
+                ctx.arc(pos.cx, pos.cy, 30, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#282a36';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('CLOUD', pos.cx, pos.cy + 5);
+            }
+
+            // Draw Edges
+            envData.edges.forEach(edge => {
+                const pos = toCanvas(edge.x, edge.y);
+                ctx.fillStyle = '#ffb86c';
+                ctx.fillRect(pos.cx - 20, pos.cy - 20, 40, 40);
+                ctx.fillStyle = '#282a36';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(edge.id, pos.cx, pos.cy + 5);
+
+                // Draw range rings
+                ctx.strokeStyle = 'rgba(255, 184, 108, 0.2)';
+                ctx.beginPath();
+                // 50 unit radius translated to canvas scale roughly
+                ctx.arc(pos.cx, pos.cy, 50 * (canvas.width/240), 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            // Draw Users
+            envData.users.forEach(user => {
+                const pos = toCanvas(user.x, user.y);
+
+                // Draw connection line to active edge
+                if (user.currentEdgeIdx !== undefined && envData.edges[user.currentEdgeIdx]) {
+                    const edgePos = toCanvas(envData.edges[user.currentEdgeIdx].x, envData.edges[user.currentEdgeIdx].y);
+                    ctx.strokeStyle = user.id === selectedUserId ? '#50fa7b' : 'rgba(80, 250, 123, 0.3)';
+                    ctx.lineWidth = user.id === selectedUserId ? 2 : 1;
+                    ctx.beginPath();
+                    ctx.moveTo(pos.cx, pos.cy);
+                    ctx.lineTo(edgePos.cx, edgePos.cy);
+                    ctx.stroke();
+                }
+
+                // Draw User Dot
+                ctx.fillStyle = user.id === selectedUserId ? '#ff79c6' : '#f8f8f2';
+                ctx.beginPath();
+                ctx.arc(pos.cx, pos.cy, user.id === selectedUserId ? 8 : 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#282a36';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = '#6272a4';
+                ctx.font = '10px Arial';
+                ctx.fillText(user.id, pos.cx, pos.cy - 12);
+            });
+        }
+
+        // Initial setup
+        setTimeout(resizeCanvas, 100);
+    </script>
+</body>
+</html>

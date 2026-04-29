@@ -60,12 +60,9 @@ async function runCloudOnly(batches) {
     console.log(`[Batch ${batch.id}] Cloud Dist: ${distToCloud.toFixed(0)}`);
 
     for (let i = 0; i < BATCH_SIZE; i++) {
-      const start = Date.now();
       try {
         const res = await axios.get(`${World.CLOUD.url}/heavy`);
-        const computeTime = parseFloat(res.data.duration_ms || 10); // Get actual internal time
-
-        // Physics: Network Delay + Compute Time
+        const computeTime = parseFloat(res.data.duration_ms || 10);
         const totalTime = networkDelay + computeTime;
 
         logRequest(
@@ -85,9 +82,9 @@ async function runCloudOnly(batches) {
   }
 }
 
-// --- MODE 2: FOG (SMART ROUTING) ---
+// --- MODE 2: FOG (SMART ROUTING & OFFLOADING) ---
 async function runFog(batches) {
-  console.log("\n\n=== MODE 2: FOG (SMART ROUTING) ===");
+  console.log("\n\n=== MODE 2: FOG (SMART ROUTING & OFFLOADING) ===");
 
   for (const batch of batches) {
     const userLoc = batch.location;
@@ -118,8 +115,6 @@ async function runFog(batches) {
     await axios.post(`${nearestEdge.manager}/deploy`);
     await new Promise((r) => setTimeout(r, 1000)); // Boot wait
 
-    // Log the "Setup Cost" (First request goes to Cloud -> Edge)
-    // We simulate this as a very high latency request
     logRequest(
       "FOG_SETUP",
       batch.id,
@@ -149,7 +144,28 @@ async function runFog(batches) {
           totalTime,
         );
       } catch (e) {
-        process.stdout.write("x");
+        // Handle Computation Overhead: Offload to Cloud if Edge returns 503
+        if (e.response && e.response.status === 503) {
+          try {
+            const cloudRes = await axios.get(`${World.CLOUD.url}/heavy`); 
+            const computeTime = parseFloat(cloudRes.data.duration_ms || 10);
+            const totalTime = cloudDelay + computeTime;
+
+            logRequest(
+              "OFFLOAD_CLOUD",
+              batch.id,
+              userLoc,
+              World.CLOUD,
+              cloudDelay,
+              computeTime,
+              totalTime,
+            );
+          } catch (cloudErr) {
+            process.stdout.write("C"); // Cloud request failed
+          }
+        } else {
+          process.stdout.write("x"); // General error
+        }
       }
     }
     process.stdout.write(` [Batch ${batch.id} Done] `);
