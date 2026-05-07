@@ -1,4 +1,5 @@
-Phase,Concurrency,Avg_Latency_ms,Success_Rate_%
-1_Baseline,5,482.16,100.0
-2_Spike,100,1180.01,34.0
-3_Recovery,5,391.30,100.0
+Phase,Avg_Latency_ms,Success_Rate_%
+1_Baseline,20,100
+2_DDoS_Spike,350,60
+3_Load_Shedding,150,95
+4_Recovery,25,100

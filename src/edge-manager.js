@@ -20,7 +20,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // --- Helper to verify Redis ---
 async function waitForRedis() {
     const client = createClient({ url: REDIS_URL });
-    client.on("error", () => {}); // ignore warnings during poll
+    client.on("error", () => { }); // ignore warnings during poll
     let connected = false;
     console.log(`[EDGE] Checking Redis connection at ${REDIS_URL}...`);
     for (let i = 0; i < 5; i++) {
@@ -103,9 +103,21 @@ app.get("/monitor", (req, res) => {
     const freeMem = os.freemem();
     const usedMemMb = (totalMem - freeMem) / 1024 / 1024;
 
+    // Mathematical Model for Server Energy Consumption (CPU-based model)
+    // Formula: P(u) = P_idle + (P_max - P_idle) * U
+    // Where:
+    // P_idle = Power consumption at idle state (e.g., 20W for small edge node)
+    // P_max = Power consumption at 100% utilization (e.g., 100W)
+    // U = CPU utilization fraction (0.0 to 1.0)
+    const pIdle = 20.0;
+    const pMax = 100.0;
+    const cpuUtilizationFraction = Math.min(cpuUsagePercent / 100, 1.0);
+    const estimatedPowerWatts = pIdle + (pMax - pIdle) * cpuUtilizationFraction;
+
     res.json({
         cpu_usage: cpuUsagePercent.toFixed(1),
         memory_mb: usedMemMb.toFixed(1),
+        estimated_power_watts: estimatedPowerWatts.toFixed(2),
         latency_network_ms: 10,
         latency_compute_ms: 35,
     });

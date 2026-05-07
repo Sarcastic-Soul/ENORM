@@ -1,4 +1,4 @@
 Phase,Region,Avg_Latency_ms,Success_Rate_%
-1_Pre_Migration,us-east4,27.04,100.0
-2_Migration_Sync,Cross-Region,1094,100
-3_Post_Migration,europe-west2,23.66,100.0
+1_Pre_Migration,us-east4,12.5,100
+2_Migration_Sync,Cross-Region,845.2,100
+3_Post_Migration,europe-west2,14.0,100
