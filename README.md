@@ -18,6 +18,31 @@ This project, ENORM, simulates a fully functional Edge Environment—complete wi
 
 ## 2. System Architecture
 
+```mermaid
+graph TD
+    Client[IoT/Client Devices] -->|Traffic| EdgeManager
+    
+    subgraph Fog Node / Edge [Fog Node / Local Edge]
+        EdgeManager(Edge Manager)
+        AppWorker[Stateful Application Worker]
+        LocalCache[(Redis Cache)]
+        
+        EdgeManager -->|Spawns & Monitors| AppWorker
+        AppWorker <-->|State/Data| LocalCache
+    end
+    
+    EdgeManager -->|Cloud Fallback Offload| CloudGW
+    
+    subgraph Central Cloud [Centralized Datacenter]
+        CloudGW(Cloud Gateway)
+        CloudWorkers[Server Instances]
+        CloudDB[(Central Storage)]
+        
+        CloudGW <--> CloudWorkers
+        CloudWorkers <--> CloudDB
+    end
+```
+
 ENORM architecture is broken down into distributed micro-components:
 
 1. **The Edge Manager (`src/edge-manager.js`)**:

@@ -325,6 +325,35 @@ def plot_fog_cloud_scenario_comparison():
     print("✅ Generated Fog vs Cloud Scenarios Comparison Plot")
 
 
+def plot_fog_vs_cloud_energy():
+    """Generates a graph comparing energy consumption in Fog vs Cloud."""
+    concurrency_levels = np.array([10, 50, 100, 200, 500])
+    
+    # Simulated CPU utilization ratio based on concurrency
+    utilization_fog = np.minimum(concurrency_levels / 250, 1.0)
+    utilization_cloud = np.minimum(concurrency_levels / 2000, 1.0) # Cloud capacity is higher
+    
+    # Using P(u) = P_idle + (P_max - P_idle) * U
+    # Fog nodes (low-power edge devices, e.g. Raspberry Pi / Small NUC)
+    fog_power = 10 + (50 - 10) * utilization_fog
+    
+    # Cloud node (Standard rack server)
+    cloud_power = 200 + (800 - 200) * utilization_cloud
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(concurrency_levels, fog_power, marker="o", color="tab:green", label="Fog (Edge Node) Power", linewidth=2)
+    plt.plot(concurrency_levels, cloud_power, marker="s", color="tab:grey", label="Cloud Server Power", linewidth=2)
+    
+    plt.xlabel("Concurrency (Requests/sec)")
+    plt.ylabel("Power Consumption (Watts)")
+    plt.title("Fog vs Cloud: System Power/Energy Consumption")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAPHS_DIR, "10_fog_vs_cloud_energy.png"), dpi=300)
+    print("✅ Generated Fog vs Cloud Energy consumption Plot")
+
+
 if __name__ == "__main__":
     print("Generating visualizations...")
     plot_concurrency()
@@ -335,6 +364,7 @@ if __name__ == "__main__":
     plot_success_rates_summary()
     plot_fog_vs_cloud_synthetic()
     plot_fog_cloud_scenario_comparison()
+    plot_fog_vs_cloud_energy()
     print(
         f"\\n🎉 Done! All graphs are saved in the {os.path.abspath(GRAPHS_DIR)} folder."
     )
