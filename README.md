@@ -20,27 +20,86 @@ This project, ENORM, simulates a fully functional Edge Environment—complete wi
 
 ```mermaid
 graph TD
-    Client[IoT/Client Devices] -->|Traffic| EdgeManager
-    
-    subgraph Fog Node / Edge [Fog Node / Local Edge]
-        EdgeManager(Edge Manager)
-        AppWorker[Stateful Application Worker]
-        LocalCache[(Redis Cache)]
-        
-        EdgeManager -->|Spawns & Monitors| AppWorker
-        AppWorker <-->|State/Data| LocalCache
+    %% --- Client / IoT Data Sources ---
+    subgraph IoT_Devices [IoT & Endpoint Layer (Edge Boundary)]
+        C1(Autonomous Vehicle 🚗)
+        C2(Drone Fleet 🚁)
+        C3(Smart Factory Sensor 🌡️)
+        C4(Mobile Device 📱)
     end
-    
-    EdgeManager -->|Cloud Fallback Offload| CloudGW
-    
-    subgraph Central Cloud [Centralized Datacenter]
-        CloudGW(Cloud Gateway)
-        CloudWorkers[Server Instances]
-        CloudDB[(Central Storage)]
+
+    %% --- Fog / Edge Computing Infrastructure ---
+    subgraph Edge_Layer [Fog Node / Edge Infrastructure]
         
-        CloudGW <--> CloudWorkers
-        CloudWorkers <--> CloudDB
+        %% Edge Node 1
+        subgraph NodeA [Edge Node 1 📍 (Local Cell)]
+            EM_A{Edge Manager Daemon}
+            subgraph AppA [Sandboxed Worker Pool]
+                W_A1[Load Worker Thread]
+                W_A2[I/O Worker Thread]
+            end
+            Redis_A[(In-Memory Redis Cache)]
+            
+            EM_A -- "/deploy" --> AppA
+            EM_A -- "/monitor" --> AppA
+            W_A1 <-->|Active State| Redis_A
+            W_A2 <-->|Active State| Redis_A
+        end
+
+        %% Edge Node 2
+        subgraph NodeB [Edge Node 2 📍 (Neighbor Cell)]
+            EM_B{Edge Manager Daemon}
+            subgraph AppB [Sandboxed Worker Pool]
+                W_B1[Standby Worker Thread]
+            end
+            Redis_B[(In-Memory Redis Cache)]
+            
+            EM_B -- "/deploy" --> AppB
+            W_B1 <-->|Active State| Redis_B
+        end
+
+        %% Inter-node communication (Simulating Geographic Roaming)
+        EM_A <-->|"/migrate-out -> /migrate-in" <br> Live State & Context Transfer| EM_B
+        Redis_A -.->|Asynchronous Sync| Redis_B
     end
+
+    %% --- Centralized Cloud Infrastructure ---
+    subgraph Cloud_Layer [Centralized Cloud Tier ☁️]
+        WAN((Wide Area Network / Trunk))
+        CGW[Cloud API Gateway / Load Balancer]
+        
+        subgraph Cloud_Datacenter [Cloud Data Center]
+            CS1[High-Compute Instance]
+            CS2[High-Compute Instance]
+            CDB[(Central Storage Data Lake)]
+            
+            CS1 <--> CDB
+            CS2 <--> CDB
+        end
+        
+        WAN --> CGW
+        CGW --> CS1
+        CGW --> CS2
+    end
+
+    %% --- Traffic Routing & Logical Connections ---
+    C1 -->|Low Latency RT-Telemetry <br> ~15ms| EM_A
+    C2 -->|Video Stream & Control| EM_A
+    C3 -->|Heavy Payload Batch| EM_B
+    C4 -.->|Physical Roaming Hand-off| EM_B
+    C4 -->|Initial Handshake| EM_A
+
+    %% Cloud Fallback / Overflow Mechanism
+    EM_A -->|Capacity > 80% Threshold <br> Cloud Fallback Penalty +200ms| WAN
+    EM_B -->|Batch Analytics Export| WAN
+
+    classDef iotfill fill:#e8f4e5,stroke:#2b542c,stroke-width:1px;
+    classDef edgefill fill:#fdfbf7,stroke:#b2915f,stroke-width:2px,stroke-dasharray: 4;
+    classDef cloudfill fill:#e6f3ff,stroke:#1f5c99,stroke-width:2px;
+    
+    class IoT_Devices iotfill;
+    class Edge_Layer edgefill;
+    class Cloud_Layer cloudfill;
 ```
 
 ENORM architecture is broken down into distributed micro-components:
